@@ -2,6 +2,7 @@ import sys,requests,sqlite3,json,hashlib
 import pandas as pd
 import numpy as np
 from bs4 import BeautifulSoup
+from lxml import html
 from requests.exceptions import HTTPError
 
 sql_max_int = 2147483647
@@ -119,7 +120,7 @@ def clean_batting_data(data, team_code):
 
 
 def insert_batting_team_data(conn, team_code):
-    # Retrieve JSON pitch data from Baseball Reference
+    # Retrieve team batting data from Baseball Reference
     url = f'https://www.baseball-reference.com/teams/tgl.cgi?team={team_code}&t=b&year=2020'
     try:
         r = requests.get(url)
@@ -139,15 +140,40 @@ def insert_batting_team_data(conn, team_code):
         clean_data.to_sql('BattingGame', conn, if_exists='append')
         conn.commit()
     except sqlite3.IntegrityError:
-        print('Team already added')
+        print('Team\'s Batting Data already added')
     except Exception as e:
         db_error_cleanup(conn, e)
 
 def insert_team_data(conn, team_code):
-    pass
+    # Retrieve html from Baseball Reference
+    url = f'https://www.baseball-reference.com/teams/tgl.cgi?team={team_code}&t=b&year=2020'
+    try:
+        r = requests.get(url)
+        # If the response was successful, no exception will be raised
+        r.raise_for_status()
+    except HTTPError as http_err:
+        raise http_err
+    
+    # Pull important data from xml tree
+    tree = html.fromstring(r.content)
+    league,division = tree.xpath('//div/div/div/div[contains(@data-template, \'Partials/Teams/Summary\')]/p[strong[contains(text(), \'Record\')]]/a/text()')[0].split('_')
+    full_name = tree.xpath('//div/div/div/div[contains(@data-template, \'Partials/Teams/Summary\')]/h1/span/text()')[1]
+    wins,losses = tree.xpath('//div/div/div/div[contains(@data-template, \'Partials/Teams/Summary\')]/p/text()[contains(.,\'-\')]')[0].split()[0].split('-')
+    losses = losses[:-1]
+
+    # SQLite insert team
+    team_id = sum([ord(char) for char in team_code]) 
+    query = 'INSERT INTO Team (id, name, team_code, league, division, wins, losses) VALUES (?,?,?,?,?,?,?)'
+    try:
+        conn.cursor().execute(query, (team_id, full_name, team_code, league, division, wins, losses))
+        conn.commit()
+    except sqlite3.IntegrityError:
+        print('Team already added')
+    except Exception as e:
+        db_error_cleanup(conn, e)
 
 
 conn = db_setup()
 create_baseball_tables(conn)
-insert_batting_team_data(conn, 'PHI')
 insert_team_data(conn, 'PHI')
+insert_batting_team_data(conn, 'PHI')
