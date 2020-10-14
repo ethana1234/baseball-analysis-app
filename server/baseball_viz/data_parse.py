@@ -53,6 +53,7 @@ def create_baseball_tables(conn):
         game_id integer NOT NULL,
         team_id integer NOT NULL,
         Date string,
+        team_code string,
         HomeAway string,
         Opp string,
         Result string,
@@ -90,6 +91,7 @@ def create_baseball_tables(conn):
         game_id integer NOT NULL,
         team_id integer NOT NULL,
         Date string,
+        team_code string,
         HomeAway string,
         Opp string,
         Result string,
@@ -158,11 +160,12 @@ def clean_batting_data(data, team_code):
     # Add team id based on 3 letter team code
     team_ids = [sum([i*j for i,j in zip([1 + ord(team_code[1]),2,3],[ord(char) for char in team_code])]) for _ in range(len(data.index))]
     data['team_id'] = team_ids
+    data['team_code'] = team_code
 
     #   Drop unneccessary columns and reorder the remains
     data.drop(columns=['Rslt', 'Rk', 'Gtm', 'Opp. Starter (GmeSc)'], inplace=True)
-    data = data[['team_id', 'Date', 'HomeAway', 'Opp', 'Result', 'RunsAgainst', 'PA', 'AB', 'R', 'H', '2B', '3B', 'HR', 'RBI', 'BB', 'IBB', 'SO', 'HBP', 'SH', 'SF',
-                'ROE', 'GDP', 'SB', 'CS', 'LOB', 'PlayersUsed', 'BA', 'OBP', 'SLG', 'OPS', 'OppStarterThr']]
+    data = data[['team_id', 'Date', 'team_code', 'HomeAway', 'Opp', 'Result', 'RunsAgainst', 'PA', 'AB', 'R', 'H', '2B', '3B', 'HR', 'RBI', 'BB',
+                'IBB', 'SO', 'HBP', 'SH', 'SF', 'ROE', 'GDP', 'SB', 'CS', 'LOB', 'PlayersUsed', 'BA', 'OBP', 'SLG', 'OPS', 'OppStarterThr']]
                 
     #   Convert numeric columns to numeric types
     data.loc[:, 'RunsAgainst':'PlayersUsed'] = data.loc[:, 'RunsAgainst':'PlayersUsed'].apply(pd.to_numeric)
@@ -207,10 +210,11 @@ def clean_pitching_data(data, team_code):
     # Add team id based on 3 letter team code
     team_ids = [sum([i*j for i,j in zip([1 + ord(team_code[1]),2,3],[ord(char) for char in team_code])]) for _ in range(len(data.index))]
     data['team_id'] = team_ids
+    data['team_code'] = team_code
 
     #   Drop unneccessary columns and reorder the remains
     data.drop(columns=['Rslt', 'Rk', 'Gtm'], inplace=True)
-    data = data[['team_id', 'Date', 'HomeAway', 'Opp', 'Result', 'RunsFor', 'H', 'R', 'ER', 'UER', 'BB', 'SO', 'HR', 'HBP', 'BF', 'Pitches', 'Strikes', 'IR',
+    data = data[['team_id', 'Date', 'team_code', 'HomeAway', 'Opp', 'Result', 'RunsFor', 'H', 'R', 'ER', 'UER', 'BB', 'SO', 'HR', 'HBP', 'BF', 'Pitches', 'Strikes', 'IR',
             'IS', 'SB', 'CS', 'AB', '2B', '3B', 'IBB', 'SH', 'SF', 'ROE', 'GDP', 'PitchersUsed', 'IP', 'ERA', 'Umpire', 'StartingPitcher', 'DecidingPitcher']]
                 
     #   Convert numeric columns to numeric types
@@ -337,8 +341,9 @@ if __name__=='__main__':
         'TOR',
         'WSN'
     ]
-    [print(team, insert_team_data(conn, team)) for team in all_team_codes]
-    #print(insert_team_data(conn, 'PHI'))
-    #print(insert_batting_team_data(conn, 'PHI'))
-    #print(insert_pitching_team_data(conn, 'PHI'))
+    for team in all_team_codes:
+        print(team)
+        print('\t', insert_team_data(conn, team))
+        print('\t', insert_batting_team_data(conn, team))
+        print('\t', insert_pitching_team_data(conn, team))
     conn.close()
