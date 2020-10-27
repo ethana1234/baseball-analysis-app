@@ -43,7 +43,7 @@ all_team_codes = [
 # Retrieve db connection from current app
 conn = app.config['DBCONN']
 
-@app.route('/')
+@app.route('/api')
 def home():
     return render_template(
         'index.html',
@@ -55,7 +55,7 @@ def home():
 
 
 # Test route
-@app.route('/hello', methods=['GET'])
+@app.route('/api/hello', methods=['GET'])
 def helloWorld():
     return 'Hello World! I am the backend.'
 
@@ -65,7 +65,7 @@ def favicon():
     return send_from_directory(os.path.join(app.root_path, 'static/img'), 'favicon.ico')
 
 # Add a team's data (Batting, Pitching, and Team)
-@app.route('/addTeam/<team_code>', methods=['POST'])
+@app.route('/api/addTeam/<team_code>', methods=['POST'])
 def add_a_team(team_code):
     response_object = {'status': 'success'}
     if team_code not in all_team_codes:
@@ -88,7 +88,7 @@ def add_a_team(team_code):
     return jsonify(response_object)
 
 # Use route parameter (only single team)
-@app.route('/teams/<team_code>/<table>', methods=['GET'])
+@app.route('/api/teams/<team_code>/<table>', methods=['GET'])
 def get_single_team(team_code, table='t'):
     response_object = {'status': 'success'}
     if team_code not in all_team_codes:
@@ -103,7 +103,7 @@ def get_single_team(team_code, table='t'):
 # Request body can choose csv format as well with format attribute, default is JSON
 # Use query string (/teams?team_code={team_code}&table={t, b, or p}) for a single team
 # No team_codes attribute returns all teams, no table attribute returns Team table
-@app.route('/teams', methods=['GET'])
+@app.route('/api/teams', methods=['GET'])
 def get_teams():
     response_object = {'status': 'success'}
     get_data = request.get_json()

@@ -1,0 +1,31 @@
+﻿id,name,team_code,league,division
+0,Arizona Diamondbacks,ARI,NL,West
+1,Atlanta Braves,ATL,NL,East
+2,Baltimore Orioles,BAL,AL,East
+3,Boston Red Sox,BOS,AL,East
+4,Chicago White Sox,CHC,AL,Central
+5,Chicago Cubs,CHW,NL,Central
+6,Cincinnati Reds,CIN,NL,Central
+7,Cleveland Indians,CLE,AL,Central
+8,Colorado Rockies,COL,NL,West
+9,Detroit Tigers,DET,AL,Central
+10,Houston Astros,HOU,AL,West
+11,Kansas City Royals,KCR,AL,Central
+12,Los Angeles Angels,LAA,AL,West
+13,Los Angeles Dodgers,LAD,NL,West
+14,Miami Marlins,MIA,NL,East
+15,Milwaukee Brewers,MIL,NL,Central
+16,Minnesota Twins,MIN,AL,Central
+17,New York Yankees,NYM,AL,East
+18,New York Mets,NYY,NL,East
+19,Oakland Athletics,OAK,AL,West
+20,Philadelphia Phillies,PHI,NL,East
+21,Pittsburgh Pirates,PIT,NL,Central
+22,San Diego Padres,SDP,NL,West
+23,San Francisco Giants,SFG,NL,West
+24,Seattle Mariners,SEA,AL,West
+25,St. Louis Cardinals,STL,NL,Central
+26,Tampa Bay Rays,TBR,AL,East
+27,Texas Rangers,TEX,AL,West
+28,Toronto Blue Jays,TOR,AL,East
+29,Washington Nationals,WSN,NL,East
