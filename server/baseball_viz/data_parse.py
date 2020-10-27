@@ -74,7 +74,49 @@ def new_db(conn):
 
     conn.commit()
 
-def clean_batting_data(data, team_code, year):
+def insert_team_data(conn, team_code, year):
+    # Retrieve html from Baseball Reference
+    url = f'https://www.baseball-reference.com/teams/tgl.cgi?team={team_code}&t=b&year={year}'
+    try:
+        r = requests.get(url)
+        # If the response was successful, no exception will be raised
+        r.raise_for_status()
+    except HTTPError as http_err:
+        raise http_err
+    
+    # Pull important data from xml tree
+    tree = html.fromstring(r.content)
+    wins,losses = tree.xpath('//div/div/div/div[contains(@data-template, \'Partials/Teams/Summary\')]/p/text()[contains(.,\'-\')]')[0].split()[0].split('-')
+    losses = losses[:-1]
+
+    # SQLite insert team
+    query = 'INSERT INTO TeamSeason (team_id, season, wins, losses) VALUES (?,?,?,?)'
+    try:
+        conn.execute(query, (team_id_dict[team_code], year, wins, losses))
+    except sqlite3.IntegrityError:
+        return f'Team Season exists: {team_code} {year}' 
+    except Exception as e:
+        db_error_cleanup(conn, e)
+        return False
+    return True
+
+def insert_batting_game_data(conn, team_code, year):
+    team_id = team_id_dict[team_code]
+
+    # Retrieve team batting data from Baseball Reference
+    url = f'https://www.baseball-reference.com/teams/tgl.cgi?team={team_code}&t=b&year={year}'
+    try:
+        r = requests.get(url)
+        # If the response was successful, no exception will be raised
+        r.raise_for_status()
+    except HTTPError as http_err:
+        raise http_err
+
+    # Retrieve Batting Table from XML page and put into a DataFrame
+    soup = BeautifulSoup(r.content, "lxml")
+    table = soup.find('table', attrs=dict(id='team_batting_gamelogs'))
+    data = pd.read_html(str(table))[0]
+
     #   Rename some of the columns
     data.rename(columns={'Unnamed: 3':'HomeAway',
                         'Thr':'OppStarterThr',
@@ -106,7 +148,7 @@ def clean_batting_data(data, team_code, year):
     data['game_id'] = game_ids
 
     # Add team ids
-    data['team_id'] = team_id_dict[team_code]
+    data['team_id'] = team_id
     data.opp_id = data.opp_id.apply(lambda x: team_id_dict[x])
 
     #   Drop unneccessary columns and reorder the remains
@@ -120,9 +162,32 @@ def clean_batting_data(data, team_code, year):
 
     data.set_index(['game_id','team_id'], inplace=True)
 
-    return data
+    try:
+        data.to_sql('TeamBattingGame', conn, if_exists='append')
+    except sqlite3.IntegrityError:
+        return True
+    except Exception as e:
+        db_error_cleanup(conn, e)
+        return False
+    return True
 
-def clean_pitching_data(data, team_code, year):
+def insert_pitching_game_data(conn, team_code, year):
+    team_id = team_id_dict[team_code]
+
+    # Retrieve team batting data from Baseball Reference
+    url = f'https://www.baseball-reference.com/teams/tgl.cgi?team={team_code}&t=p&year={year}'
+    try:
+        r = requests.get(url)
+        # If the response was successful, no exception will be raised
+        r.raise_for_status()
+    except HTTPError as http_err:
+        raise http_err
+
+    # Retrieve Batting Table from XML page and put into a DataFrame
+    soup = BeautifulSoup(r.content, "lxml")
+    table = soup.find('table', attrs=dict(id='team_pitching_gamelogs'))
+    data = pd.read_html(str(table))[0]
+
     #   Rename some of the columns
     data.rename(columns={'Unnamed: 3':'HomeAway',
                         '#': 'PitchersUsed',
@@ -156,7 +221,7 @@ def clean_pitching_data(data, team_code, year):
     data['game_id'] = game_ids
 
     # Add team ids
-    data['team_id'] = team_id_dict[team_code]
+    data['team_id'] = team_id
     data.opp_id = data.opp_id.apply(lambda x: team_id_dict[x])
 
     #   Drop unneccessary columns and reorder the remains
@@ -169,37 +234,20 @@ def clean_pitching_data(data, team_code, year):
 
     data.set_index(['game_id','team_id'], inplace=True)
 
-    return data
-
-def insert_team_data(conn, team_code, year):
-    # Retrieve html from Baseball Reference
-    url = f'https://www.baseball-reference.com/teams/tgl.cgi?team={team_code}&t=b&year={year}'
     try:
-        r = requests.get(url)
-        # If the response was successful, no exception will be raised
-        r.raise_for_status()
-    except HTTPError as http_err:
-        raise http_err
-    
-    # Pull important data from xml tree
-    tree = html.fromstring(r.content)
-    wins,losses = tree.xpath('//div/div/div/div[contains(@data-template, \'Partials/Teams/Summary\')]/p/text()[contains(.,\'-\')]')[0].split()[0].split('-')
-    losses = losses[:-1]
-
-    # SQLite insert team
-    query = 'INSERT INTO TeamSeason (team_id, season, wins, losses) VALUES (?,?,?,?)'
-    try:
-        conn.execute(query, (team_id_dict[team_code], year, wins, losses))
-    #except sqlite3.IntegrityError:
-        #return 'Team Season exists'
+        data.to_sql('TeamPitchingGame', conn, if_exists='append')
+    except sqlite3.IntegrityError:
+        return True
     except Exception as e:
         db_error_cleanup(conn, e)
         return False
     return True
 
-def insert_batting_team_data(conn, team_code, year):
+def insert_batting_season_data(conn, team_code, year):
+    team_id = team_id_dict[team_code]
+
     # Retrieve team batting data from Baseball Reference
-    url = f'https://www.baseball-reference.com/teams/tgl.cgi?team={team_code}&t=b&year={year}'
+    url = f'https://www.baseball-reference.com/teams/{team_code}/{year}-batting.shtml'
     try:
         r = requests.get(url)
         # If the response was successful, no exception will be raised
@@ -209,13 +257,63 @@ def insert_batting_team_data(conn, team_code, year):
 
     # Retrieve Batting Table from XML page and put into a DataFrame
     soup = BeautifulSoup(r.content, "lxml")
-    table = soup.find('table', attrs=dict(id='team_batting_gamelogs'))
+    table = soup.find('table', attrs=dict(id='team_batting'))
     data = pd.read_html(str(table))[0]
 
-    clean_data = clean_batting_data(data, team_code, year)
+    #   Get team's overall stats for the season
+    team_batting_data = data.loc[data['Name'] == 'Team Totals'].copy()
+    team_batting_data.drop(columns='OPS+', inplace=True)
+    team_batting_data = list(pd.to_numeric(team_batting_data.iloc[0,3:]).round(3))
+
+    #   Drop place holder rows 
+    data.drop(data[data.OBP == 'OBP'].index, inplace=True)
+    data.dropna(axis=0, subset=['Rk'], inplace=True)
+
+    #   Remove players with no at bats
+    data.fillna('0', inplace=True)
+    data = data[data.AB != '0']
+
+    #   Add player ids
+    player_elements = table.findAll('td', attrs={'data-stat':'player'})
+    player_ids = {}
+    for row in player_elements:
+        player_id = row.get('data-append-csv', None)
+        if player_id is None:
+            continue
+        player_ids[row.get_text()] = player_id
+    data.insert(0, 'player_id', data.Name.map(player_ids))
+    data.insert(1, 'season', year)
+    data.insert(2, 'team_id', team_id)
+
+    #   Create new df to insert in Players table
+    players = data[['player_id', 'Name', 'Pos']].copy()
+    players.loc[players.Name.str.contains('\*'), 'Handedness'] = 'L'
+    players.loc[players.Name.str.contains('\#'), 'Handedness'] = 'S'
+    players.Handedness.fillna('R', inplace=True)
+    players.Name = players.Name.str.rstrip('*#')
+    players.set_index('player_id', inplace=True)
+
+    #   Drop unneccessary columns and reorder the remains
+    data.drop(columns=['Rk', 'Name', 'Pos', 'OPS+'], inplace=True)
+                
+    #   Convert numeric columns to numeric types
+    data.loc['Age':] = data.loc['Age':].apply(pd.to_numeric)
+
+    data.set_index(['player_id', 'season'], inplace=True)
+
+    # Insert players into Players table if they're not already there
+    query = 'INSERT INTO Players (id, Name, Pos, Handedness) VALUES (?,?,?,?)'
+    for i,row in players.iterrows():
+        try:
+            conn.execute(query, (i, *row))
+        except sqlite3.IntegrityError:
+            print(f'Player already inserted: {row[0]}')
 
     try:
-        clean_data.to_sql('TeamBattingGame', conn, if_exists='append')
+        # Insert player and team's season batting data
+        data.to_sql('PlayerBattingSeason', conn, if_exists='append')
+        query = 'INSERT INTO TeamBattingSeason (team_id, season, Age, G, PA, AB, R, H, "2B", "3B", HR, RBI, SB, CS, BB, SO, BA, OBP, SLG, OPS, TB, GDP, HBP, SH, SF, IBB) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+        conn.execute(query, (team_id, year, *team_batting_data))
     except sqlite3.IntegrityError:
         return True
     except Exception as e:
@@ -223,9 +321,12 @@ def insert_batting_team_data(conn, team_code, year):
         return False
     return True
 
-def insert_pitching_team_data(conn, team_code, year):
+def insert_pitching_season_data(conn, team_code, year):
+    return
+    team_id = team_id_dict[team_code]
+
     # Retrieve team batting data from Baseball Reference
-    url = f'https://www.baseball-reference.com/teams/tgl.cgi?team={team_code}&t=p&year={year}'
+    url = f'https://www.baseball-reference.com/teams/{team_code}/{year}-pitching.shtml'
     try:
         r = requests.get(url)
         # If the response was successful, no exception will be raised
@@ -235,21 +336,8 @@ def insert_pitching_team_data(conn, team_code, year):
 
     # Retrieve Batting Table from XML page and put into a DataFrame
     soup = BeautifulSoup(r.content, "lxml")
-    table = soup.find('table', attrs=dict(id='team_pitching_gamelogs'))
+    table = soup.find('table', attrs=dict(id='team_batting'))
     data = pd.read_html(str(table))[0]
-
-    clean_data = clean_pitching_data(data, team_code, year)
-
-    try:
-        clean_data.to_sql('TeamPitchingGame', conn, if_exists='append')
-    except sqlite3.IntegrityError:
-        return True
-    except Exception as e:
-        db_error_cleanup(conn, e)
-        return False
-    return True
-
-
 
 if __name__=='__main__':
     conn = db_setup()
@@ -258,7 +346,8 @@ if __name__=='__main__':
         for year in [2020,2019,2018]:
             print(team, year)
             print('\t', insert_team_data(conn, team, year))
-            print('\t', insert_batting_team_data(conn, team, year))
-            print('\t', insert_pitching_team_data(conn, team, year))
-
+            print('\t', insert_batting_game_data(conn, team, year))
+            print('\t', insert_pitching_game_data(conn, team, year))
+            print('\t', insert_batting_season_data(conn, team, year))
+            print('\t', insert_pitching_season_data(conn, team, year))
     conn.close()
