@@ -262,8 +262,8 @@ def insert_batting_season_data(conn, team_code, year):
 
     #   Get team's overall stats for the season
     team_batting_data = data.loc[data['Name'] == 'Team Totals'].copy()
-    team_batting_data.drop(columns='OPS+', inplace=True)
-    team_batting_data = list(pd.to_numeric(team_batting_data.iloc[0,3:]).round(3))
+    team_batting_data.drop(columns=['Rk', 'Pos', 'Name', 'OPS+'], inplace=True)
+    team_batting_data = list(pd.to_numeric(team_batting_data.iloc[0]).round(3))
 
     #   Drop place holder rows 
     data.drop(data[data.OBP == 'OBP'].index, inplace=True)
@@ -299,10 +299,10 @@ def insert_batting_season_data(conn, team_code, year):
     #   Convert numeric columns to numeric types
     data.loc['Age':] = data.loc['Age':].apply(pd.to_numeric)
 
-    data.set_index(['player_id', 'season'], inplace=True)
+    data.set_index(['player_id', 'season', 'team_id'], inplace=True)
 
     # Insert players into Players table if they're not already there
-    query = 'INSERT INTO Players (id, Name, Pos, Handedness) VALUES (?,?,?,?)'
+    query = 'INSERT INTO Batters (id, Name, Pos, Handedness) VALUES (?,?,?,?)'
     for i,row in players.iterrows():
         try:
             conn.execute(query, (i, *row))
@@ -322,7 +322,6 @@ def insert_batting_season_data(conn, team_code, year):
     return True
 
 def insert_pitching_season_data(conn, team_code, year):
-    return
     team_id = team_id_dict[team_code]
 
     # Retrieve team batting data from Baseball Reference
@@ -336,8 +335,72 @@ def insert_pitching_season_data(conn, team_code, year):
 
     # Retrieve Batting Table from XML page and put into a DataFrame
     soup = BeautifulSoup(r.content, "lxml")
-    table = soup.find('table', attrs=dict(id='team_batting'))
+    table = soup.find('table', attrs=dict(id='team_pitching'))
     data = pd.read_html(str(table))[0]
+
+    #   Get team's overall stats for the season
+    team_pitching_data = data.loc[data['Name'] == 'Team Totals'].copy()
+    team_pitching_data.drop(columns=['Rk', 'Pos', 'Name', 'SO/W', 'ERA+', 'W', 'L', 'W-L%'], inplace=True)
+    team_pitching_data = list(pd.to_numeric(team_pitching_data.iloc[0]).round(3))
+
+    #   Rename some of the columns
+    data.rename(columns={'W':'wins',
+                        'L':'losses'}, inplace=True)
+
+    #   Drop place holder rows 
+    data.drop(data[data.ERA == 'ERA'].index, inplace=True)
+    data.dropna(axis=0, subset=['Rk'], inplace=True)
+
+    #   Fill NaN win-loss %
+    data.fillna(.000, inplace=True)
+
+    #   Add player ids
+    player_elements = table.findAll('td', attrs={'data-stat':'player'})
+    player_ids = {}
+    for row in player_elements:
+        player_id = row.get('data-append-csv', None)
+        if player_id is None:
+            continue
+        player_ids[row.get_text()] = player_id
+    data.insert(0, 'player_id', data.Name.map(player_ids))
+    data.insert(1, 'season', year)
+    data.insert(2, 'team_id', team_id)
+
+    #   Create new df to insert in Players table
+    players = data[['player_id', 'Name']].copy()
+    players.loc[players.Name.str.contains('\*'), 'Handedness'] = 'L'
+    players.loc[players.Name.str.contains('\#'), 'Handedness'] = 'S'
+    players.Handedness.fillna('R', inplace=True)
+    players.Name = players.Name.str.rstrip('*#')
+    players.set_index('player_id', inplace=True)
+
+    #   Drop unneccessary columns and reorder the remains
+    data.drop(columns=['Rk', 'Name', 'Pos', 'W-L%', 'SO/W', 'ERA+'], inplace=True)
+                
+    #   Convert numeric columns to numeric types
+    data.loc['Age':] = data.loc['Age':].apply(pd.to_numeric)
+
+    data.set_index(['player_id', 'season', 'team_id'], inplace=True)
+
+    # Insert players into Players table if they're not already there
+    query = 'INSERT INTO Pitchers (id, Name, Handedness) VALUES (?,?,?)'
+    for i,row in players.iterrows():
+        try:
+            conn.execute(query, (i, *row))
+        except sqlite3.IntegrityError:
+            print(f'Player already inserted: {row[0]}')
+
+    try:
+        # Insert player and team's season pitching data
+        data.to_sql('PlayerPitchingSeason', conn, if_exists='append')
+        query = 'INSERT INTO TeamPitchingSeason (team_id, season, Age, ERA, G, GS, GF, CG, SHO, SV, IP, H, R, ER, HR, BB, IBB, SO, HBP, BK, WP, BF, FIP, WHIP, H9, HR9, BB9, SO9) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+        conn.execute(query, (team_id, year, *team_pitching_data))
+    except sqlite3.IntegrityError:
+        return True
+    except Exception as e:
+        db_error_cleanup(conn, e)
+        return False
+    return True
 
 if __name__=='__main__':
     conn = db_setup()

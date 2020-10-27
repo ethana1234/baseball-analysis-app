@@ -8,7 +8,8 @@ DROP TABLE IF EXISTS TeamBattingGame;
 DROP TABLE IF EXISTS TeamPitchingGame;
 DROP TABLE IF EXISTS TeamBattingSeason;
 DROP TABLE IF EXISTS TeamPitchingSeason;
-DROP TABLE IF EXISTS Players;
+DROP TABLE IF EXISTS Batters;
+DROP TABLE IF EXISTS Pitchers;
 DROP TABLE IF EXISTS PlayerBattingSeason;
 DROP TABLE IF EXISTS PlayerPitchingSeason;
 
@@ -109,7 +110,7 @@ CREATE TABLE TeamPitchingGame (
 CREATE TABLE TeamBattingSeason (
     team_id integer,
     season integer,
-    Age integer,
+    Age real,
     G integer,
     PA integer,
     AB integer,
@@ -140,15 +141,46 @@ CREATE TABLE TeamBattingSeason (
 CREATE TABLE TeamPitchingSeason (
     team_id integer,
     season integer,
-
+    Age real,
+    ERA real,
+    G integer,
+    GS integer,
+    GF integer,
+    CG integer,
+    SHO integer,
+    SV integer,
+    IP real,
+    H integer,
+    R integer,
+    ER integer,
+    HR integer,
+    BB integer,
+    IBB integer,
+    SO integer,
+    HBP integer,
+    BK integer,
+    WP integer,
+    BF integer,
+    FIP real,
+    WHIP real,
+    H9 real,
+    HR9 real,
+    BB9 real,
+    SO9 real,
     PRIMARY KEY (team_id, season),
     FOREIGN KEY(team_id) REFERENCES Teams(id)
 );
 
-CREATE TABLE Players (
+CREATE TABLE Batters (
     id string PRIMARY KEY,
     Name string,
     Pos string,
+    Handedness string
+);
+
+CREATE TABLE Pitchers (
+    id string PRIMARY KEY,
+    Name string,
     Handedness string
 );
 
@@ -181,7 +213,7 @@ CREATE TABLE PlayerBattingSeason (
     SF integer,
     IBB integer,
     PRIMARY KEY (player_id, season, team_id),
-    FOREIGN KEY(player_id) REFERENCES Players(id),
+    FOREIGN KEY(player_id) REFERENCES Batters(id),
     FOREIGN KEY(team_id) REFERENCES Teams(id)
 );
 
@@ -189,8 +221,36 @@ CREATE TABLE PlayerPitchingSeason (
     player_id string,
     season integer,
     team_id integer,
+    Age integer,
+    wins integer,
+    losses integer,
+    ERA real,
+    G integer,
+    GS integer,
+    GF integer,
+    CG integer,
+    SHO integer,
+    SV integer,
+    IP real,
+    H integer,
+    R integer,
+    ER integer,
+    HR integer,
+    BB integer,
+    IBB integer,
+    SO integer,
+    HBP integer,
+    BK integer,
+    WP integer,
+    BF integer,
+    FIP real,
+    WHIP real,
+    H9 real,
+    HR9 real,
+    BB9 real,
+    SO9 real,
     PRIMARY KEY (player_id, season, team_id),
-    FOREIGN KEY(player_id) REFERENCES Players(id),
+    FOREIGN KEY(player_id) REFERENCES Pitchers(id),
     FOREIGN KEY(team_id) REFERENCES Teams(id)
 );
 -- Turn foreign key constraints back on
