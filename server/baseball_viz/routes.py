@@ -64,14 +64,20 @@ def helloWorld():
 def favicon():
     return send_from_directory(os.path.join(app.root_path, 'static/img'), 'favicon.ico')
 
-# Add a team's data (Batting, Pitching, and Team)
-@app.route('/api/addTeam/<team_code>', methods=['POST'])
-def add_a_team(team_code):
+# Reset Database
+@app.route('/reset')
+def reset_data():
+    data_parse.new_db()
+    return jsonify({'status': 'success'})
+
+# Add a team's data for a given season
+@app.route('/api/addTeam/<team_code>-<year>', methods=['POST'])
+def add_a_team(team_code, year):
     response_object = {'status': 'success'}
     if team_code not in all_team_codes:
         abort(406, description='Invalid team code')
     if request.method == 'POST':
-        team_result = data_parse.insert_team_data(conn, team_code)
+        team_result = data_parse.insert_team_data(conn, team_code, year)
         if not team_result:
             abort(500, description=f'Issue adding {team_code}')
         elif team_result == 'Team exists':

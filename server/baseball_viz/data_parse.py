@@ -94,7 +94,8 @@ def insert_team_data(conn, team_code, year):
     try:
         conn.execute(query, (team_id_dict[team_code], year, wins, losses))
     except sqlite3.IntegrityError:
-        return f'Team Season exists: {team_code} {year}' 
+        print(f'Team Season exists: {team_code} {year}')
+        return True
     except Exception as e:
         db_error_cleanup(conn, e)
         return False
