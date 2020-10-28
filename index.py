@@ -6,7 +6,7 @@ import sys,requests,json,hashlib
 from requests.exceptions import HTTPError
 
 from app import app
-from pages import batting_table
+from pages import tables
 import sidebar
 
 server = app.server
@@ -35,11 +35,11 @@ index_page = html.Div([
 @app.callback(dash.dependencies.Output('page-content', 'children'),
               [dash.dependencies.Input('url', 'pathname')])
 def display_page(pathname):
-    if pathname == '/pitching':
+    if pathname == '/hi':
         return html.Div()
-    elif pathname == '/batting':
-        return batting_table.layout
-    elif pathname == '/teams':
+    elif pathname == '/tables':
+        return tables.layout
+    elif pathname == '/hello':
         return html.Div()
     else:
         return index_page

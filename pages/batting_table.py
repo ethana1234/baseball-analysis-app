@@ -10,6 +10,7 @@ from db_scripts.db_connect import db_setup,db_error_cleanup
 from data_insert import team_id_dict
 
 # TODO: Use local variable to sort by a column
+current_table = None
 
 def get_batters(team_ids, years):
     conn = db_setup()
@@ -21,13 +22,12 @@ def get_batters(team_ids, years):
             ON pbs.player_id=b.id
         WHERE t.id {'IN (' + ','.join(['?' for _ in team_ids]) + ')' if len(team_ids)>1 else '=?'}
             AND pbs.season {'IN (' + ','.join(['?' for _ in years]) + ')' if len(years)>1 else '=?'}'''
-    df = pd.read_sql_query(query, conn, params=[*team_ids, *years], coerce_float=True).round(3)
+    df = pd.read_sql_query(query, conn, params=[*team_ids, *years], coerce_float=True)
     conn.close()
 
     df.drop(columns=['player_id', 'team_id'], inplace=True)
 
-    current_table = dbc.Table.from_dataframe(df, striped=True, bordered=True, hover=True, style={'font-size': 11})
-    return current_table
+    return df
 
 
 def get_team_batting(team_ids, years):
@@ -41,14 +41,29 @@ def get_team_batting(team_ids, years):
                 AND ts.season=tbs.season
         WHERE t.id {'IN (' + ','.join(['?' for _ in team_ids]) + ')' if len(team_ids)>1 else '=?'}
             AND tbs.season {'IN (' + ','.join(['?' for _ in years]) + ')' if len(years)>1 else '=?'}'''
-    df = pd.read_sql_query(query, conn, params=[*team_ids, *years], coerce_float=True).round(3)
+    df = pd.read_sql_query(query, conn, params=[*team_ids, *years], coerce_float=True)
     conn.close()
 
     df.drop(columns=['team_id'], inplace=True)
-
-    current_table = dbc.Table.from_dataframe(df, striped=True, bordered=True, hover=True, style={'font-size': 11})
     
-    return current_table
+    return df
+
+def get_gamelogs(team_ids, years):
+    conn = db_setup()
+    query = f'''
+        SELECT t1.team_code || CASE tbg.HomeAway WHEN 'H' THEN ' vs. ' ELSE ' @ ' END || t2.team_code Game, tbg.R || '-' || tbg.RunsAgainst Score, tbg.*
+        FROM Teams t1 JOIN TeamBattingGame tbg
+            ON t1.id=tbg.team_id
+        JOIN Teams t2
+            ON t2.id=tbg.opp_id
+        WHERE t1.id {'IN (' + ','.join(['?' for _ in team_ids]) + ')' if len(team_ids)>1 else '=?'}
+            AND tbg.season {'IN (' + ','.join(['?' for _ in years]) + ')' if len(years)>1 else '=?'}'''
+    df = pd.read_sql_query(query, conn, params=[*team_ids, *years], coerce_float=True)
+    conn.close()
+
+    df.drop(columns=['team_id', 'game_id', 'opp_id', 'HomeAway', 'RunsAgainst', 'R'], inplace=True)
+    
+    return df
 
 table_placeholder = dbc.Jumbotron([
     dbc.Container([
@@ -58,8 +73,6 @@ table_placeholder = dbc.Jumbotron([
         fluid=True
     )
 ])
-
-current_table = table_placeholder
 
 
 layout = html.Div(children=[
@@ -92,24 +105,68 @@ layout = html.Div(children=[
             style={'width': 300, 'display': 'inline-block'}
         ),
     ]),
-    html.Div(current_table, id='table-result')
+    dbc.Row([
+        dbc.Col([
+            dbc.Label('Sort By:'),
+            dcc.Dropdown(id='sorter')
+        ]),
+        dbc.Col([
+            dbc.Label(''),
+            dbc.RadioItems(
+                id='asc-desc',
+                options=[
+                    {'label': 'Ascending', 'value': True},
+                    {'label': 'Descending', 'value': False}
+                ]
+            )
+        ]),
+    ]),
+    html.Br(),
+    html.Div(table_placeholder, id='table-result'),
+    html.Div(id='save-table', style={'display': 'none'})
 ])
 
 @app.callback(
-    dash.dependencies.Output('table-result', 'children'),
+    [dash.dependencies.Output('save-table', 'children'),
+    dash.dependencies.Output('sorter', 'value'),
+    dash.dependencies.Output('asc-desc', 'value')],
     [dash.dependencies.Input('table-type', 'value'),
     dash.dependencies.Input('team-name', 'value'),
-    dash.dependencies.Input('season-year', 'value')]
+    dash.dependencies.Input('season-year', 'value'),]
 )
-def update_table_type(table_type, team_ids, years):
-    if team_ids is None:
+def update_dataframe(table_type, team_ids, years):
+    if team_ids is None or not team_ids:
         team_ids = [20]
-    if years is None:
+    if years is None or not years:
         years = [2020]
     if table_type == 'pbs':
-        return get_batters(team_ids, years)
+        df = get_batters(team_ids, years)
     elif table_type == 'tbs':
-        return get_team_batting(team_ids, years)
+        df = get_team_batting(team_ids, years)
+    elif table_type == 'tbg':
+        df = get_gamelogs(team_ids, years)
     else:
-        return table_placeholder
+        return None, None, None
+    
+    return df.to_json(orient='split'), None, None
+
+@app.callback(
+    [dash.dependencies.Output('table-result', 'children'),
+    dash.dependencies.Output('sorter', 'options')],
+    [dash.dependencies.Input('save-table', 'children'),
+    dash.dependencies.Input('sorter', 'value'),
+    dash.dependencies.Input('asc-desc', 'value')]
+)
+def update_table_type(data, sort_by, asc_desc):
+    if data is None:
+        table, sorter = table_placeholder, []
+    else:
+        df = pd.read_json(data, orient='split').round(3)
+        if sort_by is not None:
+            # Table is getting sorted
+            df = df.sort_values(by=[sort_by], ascending=asc_desc)
+        table = dbc.Table.from_dataframe(df, striped=True, bordered=True, hover=True, style={'font-size': 11})
+        sorter = [{'label': col, 'value': col} for col in df.columns]
+
+    return table, sorter
     
