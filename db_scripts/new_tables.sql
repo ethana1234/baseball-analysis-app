@@ -16,7 +16,7 @@ DROP TABLE IF EXISTS PlayerPitchingSeason;
 -- Create tables
 CREATE TABLE Teams (
     id integer PRIMARY KEY,
-    name string NOT NULL,
+    Name string NOT NULL,
     team_code string NOT NULL,
     league string NOT NULL,
     division string NOT NULL

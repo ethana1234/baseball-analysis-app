@@ -9,9 +9,6 @@ from app import app
 from db_scripts.db_connect import db_setup,db_error_cleanup
 from data_insert import team_id_dict
 
-# TODO: Use local variable to sort by a column
-current_table = None
-
 def get_batters(team_ids, years):
     conn = db_setup()
     query = f'''
@@ -79,25 +76,25 @@ layout = html.Div(children=[
     html.H1('Batting Tables'),
     html.Div([
         dcc.Dropdown(
-            id='table-type',
+            id='b-table-type',
             options=[
                 {'label': 'Player Season Batting', 'value': 'pbs'},
                 {'label': 'Team Season Batting', 'value': 'tbs'},
-                {'label': 'Team Game Batting', 'value': 'tbg'}
+                {'label': 'Team Batting Gamelogs', 'value': 'tbg'}
             ],
             placeholder='Table Type',
             searchable=False,
             style={'width': 300, 'display': 'inline-block'}
         ),
         dcc.Dropdown(
-            id='team-name',
+            id='b-team-name',
             options=[{'label': team_code, 'value': team_id} for team_code,team_id in team_id_dict.items()],
             placeholder='Team (default: PHI)',
             multi=True,
             style={'width': 300, 'display': 'inline-block'}
         ),
         dcc.Dropdown(
-            id='season-year',
+            id='b-season-year',
             options=[{'label': year, 'value': year} for year in [2020,2019,2018]],
             placeholder='Year (default: 2020)',
             searchable=False,
@@ -108,12 +105,12 @@ layout = html.Div(children=[
     dbc.Row([
         dbc.Col([
             dbc.Label('Sort By:'),
-            dcc.Dropdown(id='sorter')
+            dcc.Dropdown(id='b-sorter')
         ]),
         dbc.Col([
             dbc.Label(''),
             dbc.RadioItems(
-                id='asc-desc',
+                id='b-asc-desc',
                 options=[
                     {'label': 'Ascending', 'value': True},
                     {'label': 'Descending', 'value': False}
@@ -122,17 +119,17 @@ layout = html.Div(children=[
         ]),
     ]),
     html.Br(),
-    html.Div(table_placeholder, id='table-result'),
-    html.Div(id='save-table', style={'display': 'none'})
+    html.Div(table_placeholder, id='b-table-result'),
+    html.Div(id='b-save-table', style={'display': 'none'})
 ])
 
 @app.callback(
-    [dash.dependencies.Output('save-table', 'children'),
-    dash.dependencies.Output('sorter', 'value'),
-    dash.dependencies.Output('asc-desc', 'value')],
-    [dash.dependencies.Input('table-type', 'value'),
-    dash.dependencies.Input('team-name', 'value'),
-    dash.dependencies.Input('season-year', 'value'),]
+    [dash.dependencies.Output('b-save-table', 'children'),
+    dash.dependencies.Output('b-sorter', 'value'),
+    dash.dependencies.Output('b-asc-desc', 'value')],
+    [dash.dependencies.Input('b-table-type', 'value'),
+    dash.dependencies.Input('b-team-name', 'value'),
+    dash.dependencies.Input('b-season-year', 'value'),]
 )
 def update_dataframe(table_type, team_ids, years):
     if team_ids is None or not team_ids:
@@ -151,11 +148,11 @@ def update_dataframe(table_type, team_ids, years):
     return df.to_json(orient='split'), None, None
 
 @app.callback(
-    [dash.dependencies.Output('table-result', 'children'),
-    dash.dependencies.Output('sorter', 'options')],
-    [dash.dependencies.Input('save-table', 'children'),
-    dash.dependencies.Input('sorter', 'value'),
-    dash.dependencies.Input('asc-desc', 'value')]
+    [dash.dependencies.Output('b-table-result', 'children'),
+    dash.dependencies.Output('b-sorter', 'options')],
+    [dash.dependencies.Input('b-save-table', 'children'),
+    dash.dependencies.Input('b-sorter', 'value'),
+    dash.dependencies.Input('b-asc-desc', 'value')]
 )
 def update_table_type(data, sort_by, asc_desc):
     if data is None:
