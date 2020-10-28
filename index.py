@@ -6,7 +6,7 @@ import sys,requests,json,hashlib
 from requests.exceptions import HTTPError
 
 from app import app
-from pages import tables
+from pages import tables,scatter_plots
 import sidebar
 
 server = app.server
@@ -35,8 +35,8 @@ index_page = html.Div([
 @app.callback(dash.dependencies.Output('page-content', 'children'),
               [dash.dependencies.Input('url', 'pathname')])
 def display_page(pathname):
-    if pathname == '/hi':
-        return html.Div()
+    if pathname == '/scatters':
+        return scatter_plots.layout
     elif pathname == '/tables':
         return tables.layout
     elif pathname == '/hello':

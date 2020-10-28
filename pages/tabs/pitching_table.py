@@ -87,15 +87,15 @@ layout = html.Div(children=[
             style={'width': 300, 'display': 'inline-block'}
         ),
         dcc.Dropdown(
-            id='p-team-name',
+            id='p-table-team-name',
             options=[{'label': team_code, 'value': team_id} for team_code,team_id in team_id_dict.items()],
             placeholder='Team (default: PHI)',
             multi=True,
             style={'width': 300, 'display': 'inline-block'}
         ),
         dcc.Dropdown(
-            id='p-season-year',
-            options=[{'label': year, 'value': year} for year in [2020,2019,2018]],
+            id='p-table-season-year',
+            options=[{'label': year, 'value': year} for year in range(2020, 2011, -1)],
             placeholder='Year (default: 2020)',
             searchable=False,
             multi=True,
@@ -105,12 +105,12 @@ layout = html.Div(children=[
     dbc.Row([
         dbc.Col([
             dbc.Label('Sort By:'),
-            dcc.Dropdown(id='p-sorter')
+            dcc.Dropdown(id='p-table-sorter')
         ]),
         dbc.Col([
             dbc.Label(''),
             dbc.RadioItems(
-                id='p-asc-desc',
+                id='p-table-asc-desc',
                 options=[
                     {'label': 'Ascending', 'value': True},
                     {'label': 'Descending', 'value': False}
@@ -125,11 +125,11 @@ layout = html.Div(children=[
 
 @app.callback(
     [dash.dependencies.Output('p-save-table', 'children'),
-    dash.dependencies.Output('p-sorter', 'value'),
-    dash.dependencies.Output('p-asc-desc', 'value')],
+    dash.dependencies.Output('p-table-sorter', 'value'),
+    dash.dependencies.Output('p-table-asc-desc', 'value')],
     [dash.dependencies.Input('p-table-type', 'value'),
-    dash.dependencies.Input('p-team-name', 'value'),
-    dash.dependencies.Input('p-season-year', 'value'),]
+    dash.dependencies.Input('p-table-team-name', 'value'),
+    dash.dependencies.Input('p-table-season-year', 'value'),]
 )
 def update_dataframe(table_type, team_ids, years):
     if team_ids is None or not team_ids:
@@ -149,10 +149,10 @@ def update_dataframe(table_type, team_ids, years):
 
 @app.callback(
     [dash.dependencies.Output('p-table-result', 'children'),
-    dash.dependencies.Output('p-sorter', 'options')],
+    dash.dependencies.Output('p-table-sorter', 'options')],
     [dash.dependencies.Input('p-save-table', 'children'),
-    dash.dependencies.Input('p-sorter', 'value'),
-    dash.dependencies.Input('p-asc-desc', 'value')]
+    dash.dependencies.Input('p-table-sorter', 'value'),
+    dash.dependencies.Input('p-table-asc-desc', 'value')]
 )
 def update_table_type(data, sort_by, asc_desc):
     if data is None:

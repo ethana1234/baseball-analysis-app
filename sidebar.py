@@ -5,7 +5,7 @@ import dash_html_components as html
 
 from app import app
 
-page_ids = ['home', 'hi', 'tables', 'hello']
+page_ids = ['home', 'scatters', 'tables', 'hello']
 
 layout = html.Div(
     [
@@ -17,7 +17,7 @@ layout = html.Div(
         dbc.Nav(
             [
                 dbc.NavLink('Home', href='/', id=f'{page_ids[0]}-link'),
-                dbc.NavLink("Coming Soon", href="/hi", id=f'{page_ids[1]}-link'),
+                dbc.NavLink("Scatter Plot Tool", href="/scatters", id=f'{page_ids[1]}-link'),
                 dbc.NavLink("Tables", href="/tables", id=f'{page_ids[2]}-link'),
                 dbc.NavLink("Coming Soon", href="/hello", id=f'{page_ids[3]}-link'),
             ],
