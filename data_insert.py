@@ -9,6 +9,8 @@ import os
 
 from db_scripts.db_connect import db_setup,db_error_cleanup
 
+# TODO: Allow insertion of deprecated team codes (e.g. the Marlins used FLA before 2012)
+
 sql_max_int = 2147483647
 team_codes = [
     'ARI',
@@ -293,7 +295,7 @@ def insert_batting_season_data(conn, team_code, year):
         try:
             conn.execute(query, (i, *row))
         except sqlite3.IntegrityError:
-            print(f'Player already inserted: {row[0]}')
+            print(f'\t\t\tPlayer already inserted: {row[0]}')
 
     try:
         # Insert player and team's season batting data
@@ -374,7 +376,7 @@ def insert_pitching_season_data(conn, team_code, year):
         try:
             conn.execute(query, (i, *row))
         except sqlite3.IntegrityError:
-            print(f'Player already inserted: {row[0]}')
+            print(f'\t\t\tPlayer already inserted: {row[0]}')
 
     try:
         # Insert player and team's season pitching data
@@ -388,15 +390,20 @@ def insert_pitching_season_data(conn, team_code, year):
         return False
     return True
 
-if __name__=='__main__':
+
+def populate_db():
     conn = db_setup()
     new_db(conn)
     for team in team_codes:
-        for year in [2020,2019,2018]:
-            print(team, year)
-            print('\t', insert_team_data(conn, team, year))
-            print('\t', insert_batting_game_data(conn, team, year))
-            print('\t', insert_pitching_game_data(conn, team, year))
-            print('\t', insert_batting_season_data(conn, team, year))
-            print('\t', insert_pitching_season_data(conn, team, year))
+        print(team)
+        for year in range(2020, 2011, -1):
+            print('\t', year)
+            insert_team_data(conn, team, year)
+            insert_batting_game_data(conn, team, year)
+            insert_pitching_game_data(conn, team, year)
+            insert_batting_season_data(conn, team, year)
+            insert_pitching_season_data(conn, team, year)
     conn.close()
+
+if __name__=='__main__':
+    populate_db()
