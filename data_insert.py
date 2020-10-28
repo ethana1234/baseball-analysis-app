@@ -5,6 +5,9 @@ from datetime import datetime
 from bs4 import BeautifulSoup
 from lxml import html
 from requests.exceptions import HTTPError
+import os
+
+from db_scripts.db_connect import db_setup,db_error_cleanup
 
 sql_max_int = 2147483647
 team_codes = [
@@ -41,33 +44,15 @@ team_codes = [
 ]
 team_id_dict = dict(zip(team_codes, list(range(len(team_codes)))))
 
-def db_setup():
-    # Connect to db
-    # Setup db connection, conn variable is None if connection unsuccessful
-    conn = None
-    try:
-        # Note that if db file doesn't already exist, one will be made
-        # Also be weary of the check_same_thread condition, could cause problems if multiple threads try to access db
-        conn = sqlite3.connect('D:/mydata/baseball.db', check_same_thread=False)
-    except Exception as e:
-        # Don't continue if there's an Exception here
-        db_error_cleanup(conn, e)
-    return conn
-
-def db_error_cleanup(conn, e):
-    # Proper cleanup of db after catching an Exception
-    conn.rollback()
-    conn.close()
-    raise e
-
 def new_db(conn):
+    directory = os.path.dirname(os.path.abspath(__file__))
     # Drop and recreate tables
-    with open('D:/personal/baseball-analysis-app/server/db_scripts/new_tables.sql', 'r') as f:
+    with open(directory + '/db_scripts/new_tables.sql', 'r') as f:
         script = f.read()
         conn.executescript(script)
 
     # Populate Teams table
-    df = pd.read_csv('D:/personal/baseball-analysis-app/server/db_scripts/team_table.csv')
+    df = pd.read_csv(directory + '/db_scripts/team_table.csv')
     df['id'] = df['id'].apply(pd.to_numeric)
     df.set_index('id', inplace=True)
     df.to_sql('Teams', conn, if_exists='append')
