@@ -110,11 +110,13 @@ def update_scatter_data(data, x_axis, y_axis, team_names, seasons, qualified):
             df1 = df[(df.PA >= 186) & (df.season == 2020)]
             df2 = df[df.PA > 502]
             df = pd.concat([df1,df2])
-        fig = px.scatter(df, x=x_axis, y=y_axis, hover_data=['Name'])
+        # Clean up hover info
+        hover_data = {'Name': True, 'season': True, 'Team': False} if seasons and len(seasons) > 1 else {'Name': True, 'Team': False}
+        fig = px.scatter(df, x=x_axis, y=y_axis, hover_data=hover_data)
         fig.update_xaxes(title=x_axis, type='linear')
         fig.update_yaxes(title=y_axis, type='linear')
-        fig.update_layout(font={'size': 18, 'family': 'Segoe UI'})
-
+        fig.update_layout(font={'size': 18, 'family': 'Segoe UI'}, hovermode='closest')
+        
         # Make sure to only have numeric columns as axis options
         axis_options = list(df.select_dtypes(include=[np.number]).columns.values)
         axis_options = [{'label': col, 'value': col} for col in axis_options]
