@@ -4,7 +4,7 @@ import dash_html_components as html
 import dash_bootstrap_components as dbc
 import plotly.express as px
 import pandas as pd
-import sqlite3
+import numpy as np
 
 from app import app
 from db_scripts.db_connect import db_setup,db_error_cleanup
@@ -27,15 +27,7 @@ def get_batters(team_ids, years):
 
     return df
 
-scatter_placeholder = dbc.Jumbotron([
-    dbc.Container([
-            html.H1('Nothing Selected', className='display-3'),
-            html.P('Select a graph type to see data', className="lead"),
-        ],
-        fluid=True
-    )
-])
-
+scatter_placeholder = dbc.Spinner(color='secondary')
 
 layout = html.Div(children=[
     html.Div([
@@ -56,7 +48,7 @@ layout = html.Div(children=[
         ),
         dcc.Dropdown(
             id='b-scatter-x',
-            placeholder='X-axis Stat (default: BA)',
+            placeholder='X-axis Stat (default: Age)',
             searchable=False,
             style={'width': 300, 'display': 'inline-block'}
         ),
@@ -66,8 +58,15 @@ layout = html.Div(children=[
             searchable=False,
             style={'width': 300, 'display': 'inline-block'}
         ),
-    ]),
+        dbc.Checklist(
+            options=[{'label': 'Qualified batters only', 'value': 1}],
+            value=[],
+            id='b-scatter-qualified',
+            style={'padding-left': '25px'}
+        ),
+    ], style={'display': 'flex'}),
     html.Br(),
+    html.H3(id='b-scatter-label', style={'text-align': 'center'}),
     html.Div(scatter_placeholder, id='b-scatter-result'),
     html.Div(id='b-save-scatter', style={'display': 'none'})
 ])
@@ -89,15 +88,16 @@ def update_dataframe(team_ids, years):
 @app.callback(
     [dash.dependencies.Output('b-scatter-result', 'children'),
     dash.dependencies.Output('b-scatter-x', 'options'),
-    dash.dependencies.Output('b-scatter-y', 'options')],
+    dash.dependencies.Output('b-scatter-y', 'options'),
+    dash.dependencies.Output('b-scatter-label', 'children')],
     [dash.dependencies.Input('b-save-scatter', 'children'),
     dash.dependencies.Input('b-scatter-x', 'value'),
     dash.dependencies.Input('b-scatter-y', 'value'),
     dash.dependencies.Input('b-scatter-team-name', 'label'),
-    dash.dependencies.Input('b-scatter-season-year', 'label')]
+    dash.dependencies.Input('b-scatter-season-year', 'label'),
+    dash.dependencies.Input('b-scatter-qualified', 'value')]
 )
-def update_scatter_data(data, x_axis, y_axis, team_names, seasons):
-
+def update_scatter_data(data, x_axis, y_axis, team_names, seasons, qualified):
     if data is None:
         return scatter_placeholder, None, None
     else:
@@ -106,10 +106,20 @@ def update_scatter_data(data, x_axis, y_axis, team_names, seasons):
         if y_axis is None:
             y_axis = 'BA'
         df = pd.read_json(data, orient='split').round(3)
-        fig = px.scatter(df, x=x_axis, y=y_axis)
-        fig.update_traces(customdata=['Name'])
+        if qualified:
+            df1 = df[(df.PA >= 186) & (df.season == 2020)]
+            df2 = df[df.PA > 502]
+            df = pd.concat([df1,df2])
+        fig = px.scatter(df, x=x_axis, y=y_axis, hover_data=['Name'])
         fig.update_xaxes(title=x_axis, type='linear')
         fig.update_yaxes(title=y_axis, type='linear')
-        axis_options = [{'label': col, 'value': col} for col in df.columns]
-        return dcc.Graph(figure=fig), axis_options, axis_options
+        fig.update_layout(font={'size': 18, 'family': 'Segoe UI'})
+
+        # Make sure to only have numeric columns as axis options
+        axis_options = list(df.select_dtypes(include=[np.number]).columns.values)
+        axis_options = [{'label': col, 'value': col} for col in axis_options]
+
+        scatter_title = f'{y_axis} vs. {x_axis} (Correlation: {df[y_axis].corr(df[x_axis]).round(5)})'
+
+        return dcc.Graph(figure=fig, style={'height': '80vh'}), axis_options, axis_options, scatter_title
 
