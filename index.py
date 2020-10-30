@@ -6,7 +6,7 @@ import sys,requests,json,hashlib
 from requests.exceptions import HTTPError
 
 from app import app
-from pages import tables,scatter_plots
+from pages import tables,scatter_plots,time_series
 import sidebar
 
 server = app.server
@@ -39,8 +39,8 @@ def display_page(pathname):
         return scatter_plots.layout
     elif pathname == '/tables':
         return tables.layout
-    elif pathname == '/hello':
-        return html.Div()
+    elif pathname == '/ts':
+        return time_series.layout
     else:
         return index_page
 

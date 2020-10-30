@@ -3,6 +3,8 @@ import dash_core_components as dcc
 import dash_html_components as html
 import dash_bootstrap_components as dbc
 import plotly.express as px
+import plotly.graph_objects as go
+import statsmodels.api as sm
 import pandas as pd
 import numpy as np
 
@@ -111,14 +113,53 @@ def update_scatter_data(data, x_axis, y_axis, team_names, seasons, qualified):
             df1 = df[(df.PA >= 186) & (df.season == 2020)]
             df2 = df[df.PA > 502]
             df = pd.concat([df1,df2])
+        # Make year categorical
+        df['season'] = df.season.astype(str)
         # Clean up hover info
         hover_data = {'Name': True, 'season': True, 'Team': False} if seasons and len(seasons) > 1 else {'Name': True, 'Team': False}
-        fig = px.scatter(df, x=x_axis, y=y_axis, hover_data=hover_data, trendline='ols', trendline_color_override='black')
+        fig = px.scatter(df, x=x_axis, y=y_axis, hover_data=hover_data, color='season')
+
         # Configure trendline
-        fig.data[1]['line'].update(dash='dash')
-        fig.update_xaxes(title=x_axis, type='linear')
-        fig.update_yaxes(title=y_axis, type='linear')
-        fig.update_layout(font={'size': 18, 'family': 'Segoe UI'}, hovermode='closest')
+        regline = sm.OLS(df[y_axis], sm.add_constant(df[x_axis])).fit().fittedvalues
+        # add linear regression line for whole sample
+        fig.add_traces(
+            go.Scatter(
+                x=df[x_axis],
+                y=regline,
+                mode = 'lines',
+                marker_color='black',
+                opacity=.25,
+                hoverinfo='skip',
+                showlegend=False,
+            )
+        )
+
+        fig.update_layout(
+            font=dict(
+                size=18,
+                family='Segoe UI'
+            ),
+            hovermode='closest',
+            xaxis=dict(
+                title=x_axis,
+                type='linear',
+                showspikes=True,
+                spikemode='across',
+                spikethickness=2,
+                spikedash='dot',
+                spikecolor='grey'
+            ),
+            yaxis=dict(
+                title=y_axis,
+                type='linear',
+                showspikes=True,
+                spikemode='across',
+                spikethickness=2,
+                spikedash='dot',
+                spikecolor='grey'
+            )
+        )
+        fig.update_traces(hovertemplate=None)
         
         # Make sure to only have numeric columns as axis options
         axis_options = list(df.select_dtypes(include=[np.number]).columns.values)
