@@ -68,12 +68,12 @@ layout = html.Div(children=[
     html.Br(),
     html.H3(id='p-scatter-label', style={'text-align': 'center'}),
     html.Div(scatter_placeholder, id='p-scatter-result'),
-    html.Div(id='p-save-scatter', style={'display': 'none'}),
+    html.Div(id='p-scatter-save', style={'display': 'none'}),
     html.Footer('*Note that Pearson Correlation may not useful for some variables')
 ])
 
 @app.callback(
-    dash.dependencies.Output('p-save-scatter', 'children'),
+    dash.dependencies.Output('p-scatter-save', 'children'),
     [dash.dependencies.Input('p-scatter-team-name', 'value'),
     dash.dependencies.Input('p-scatter-season-year', 'value'),]
 )
@@ -91,7 +91,7 @@ def update_dataframe(team_ids, years):
     dash.dependencies.Output('p-scatter-x', 'options'),
     dash.dependencies.Output('p-scatter-y', 'options'),
     dash.dependencies.Output('p-scatter-label', 'children')],
-    [dash.dependencies.Input('p-save-scatter', 'children'),
+    [dash.dependencies.Input('p-scatter-save', 'children'),
     dash.dependencies.Input('p-scatter-x', 'value'),
     dash.dependencies.Input('p-scatter-y', 'value'),
     dash.dependencies.Input('p-scatter-team-name', 'label'),

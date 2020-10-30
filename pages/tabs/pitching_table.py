@@ -120,11 +120,11 @@ layout = html.Div(children=[
     ]),
     html.Br(),
     html.Div(table_placeholder, id='p-table-result'),
-    html.Div(id='p-save-table', style={'display': 'none'})
+    html.Div(id='p-table-save', style={'display': 'none'})
 ])
 
 @app.callback(
-    [dash.dependencies.Output('p-save-table', 'children'),
+    [dash.dependencies.Output('p-table-save', 'children'),
     dash.dependencies.Output('p-table-sorter', 'value'),
     dash.dependencies.Output('p-table-asc-desc', 'value')],
     [dash.dependencies.Input('p-table-type', 'value'),
@@ -150,7 +150,7 @@ def update_dataframe(table_type, team_ids, years):
 @app.callback(
     [dash.dependencies.Output('p-table-result', 'children'),
     dash.dependencies.Output('p-table-sorter', 'options')],
-    [dash.dependencies.Input('p-save-table', 'children'),
+    [dash.dependencies.Input('p-table-save', 'children'),
     dash.dependencies.Input('p-table-sorter', 'value'),
     dash.dependencies.Input('p-table-asc-desc', 'value')]
 )
