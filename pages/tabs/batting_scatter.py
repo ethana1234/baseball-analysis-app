@@ -68,7 +68,8 @@ layout = html.Div(children=[
     html.Br(),
     html.H3(id='b-scatter-label', style={'text-align': 'center'}),
     html.Div(scatter_placeholder, id='b-scatter-result'),
-    html.Div(id='b-save-scatter', style={'display': 'none'})
+    html.Div(id='b-save-scatter', style={'display': 'none'}),
+    html.Footer('*Note that Pearson Correlation may not useful for some variables')
 ])
 
 @app.callback(
@@ -112,7 +113,9 @@ def update_scatter_data(data, x_axis, y_axis, team_names, seasons, qualified):
             df = pd.concat([df1,df2])
         # Clean up hover info
         hover_data = {'Name': True, 'season': True, 'Team': False} if seasons and len(seasons) > 1 else {'Name': True, 'Team': False}
-        fig = px.scatter(df, x=x_axis, y=y_axis, hover_data=hover_data)
+        fig = px.scatter(df, x=x_axis, y=y_axis, hover_data=hover_data, trendline='ols', trendline_color_override='black')
+        # Configure trendline
+        fig.data[1]['line'].update(dash='dash')
         fig.update_xaxes(title=x_axis, type='linear')
         fig.update_yaxes(title=y_axis, type='linear')
         fig.update_layout(font={'size': 18, 'family': 'Segoe UI'}, hovermode='closest')
@@ -121,7 +124,7 @@ def update_scatter_data(data, x_axis, y_axis, team_names, seasons, qualified):
         axis_options = list(df.select_dtypes(include=[np.number]).columns.values)
         axis_options = [{'label': col, 'value': col} for col in axis_options]
 
-        scatter_title = f'{y_axis} vs. {x_axis} (Correlation: {df[y_axis].corr(df[x_axis]).round(5)})'
+        scatter_title = f'{y_axis} vs. {x_axis} (Pearson Correlation: {df[y_axis].corr(df[x_axis]).round(5)})'
 
         return dcc.Graph(figure=fig, style={'height': '80vh'}), axis_options, axis_options, scatter_title
 
