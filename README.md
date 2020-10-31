@@ -14,6 +14,9 @@ Then install package requirements with:
 ```
 pip install -r requirements.txt
 ```
+To make sure the local database is populated, run `python data_insert.py` in the main repo directory.
+
+
 And now you can run the application in the main repo directory with:
 ```
 python index.py
