@@ -96,11 +96,10 @@ def update_dataframe(team_ids, years):
     [dash.dependencies.Input('p-scatter-save', 'children'),
     dash.dependencies.Input('p-scatter-x', 'value'),
     dash.dependencies.Input('p-scatter-y', 'value'),
-    dash.dependencies.Input('p-scatter-team-name', 'label'),
-    dash.dependencies.Input('p-scatter-season-year', 'label'),
+    dash.dependencies.Input('p-scatter-season-year', 'value'),
     dash.dependencies.Input('p-scatter-qualified', 'value')]
 )
-def update_scatter_data(data, x_axis, y_axis, team_names, seasons, qualified):
+def update_scatter_data(data, x_axis, y_axis, seasons, qualified):
     if data is None:
         return scatter_placeholder, None, None
     else:
@@ -116,9 +115,16 @@ def update_scatter_data(data, x_axis, y_axis, team_names, seasons, qualified):
             df = pd.concat([df1,df2])
         # Make year categorical
         df['season'] = df.season.astype(str)
+        
+        fig = px.scatter(df, x=x_axis, y=y_axis, color='season')
         # Clean up hover info
-        hover_data = {'Name': True, 'season': True, 'Team': False} if seasons and len(seasons) > 1 else {'Name': True, 'Team': False}
-        fig = px.scatter(df, x=x_axis, y=y_axis, hover_data=hover_data, color='season')
+        season_len = (seasons is not None) and (len(seasons) > 1)
+        hovertemplate = 'Player: %{customdata[0]}<br>Season: %{customdata[1]}<extra></extra>' if season_len else 'Player: %{customdata[0]}<extra></extra>'
+        fig.update_traces(
+            customdata=np.stack((df.Name, df.season), axis=-1),
+            hovertemplate=hovertemplate,
+            showlegend=season_len
+        )
 
         # Configure trendline
         regline = sm.OLS(df[y_axis], sm.add_constant(df[x_axis])).fit().fittedvalues
@@ -160,7 +166,11 @@ def update_scatter_data(data, x_axis, y_axis, team_names, seasons, qualified):
                 spikecolor='grey'
             )
         )
-        fig.update_traces(hovertemplate=None)
+        
+        
+        # Make sure to only have numeric columns as axis options
+        axis_options = list(df.select_dtypes(include=[np.number]).columns.values)
+        axis_options = [{'label': col, 'value': col} for col in axis_options]
 
         # Make sure to only have numeric columns as axis options
         axis_options = list(df.select_dtypes(include=[np.number]).columns.values)

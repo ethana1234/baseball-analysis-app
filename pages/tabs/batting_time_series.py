@@ -10,6 +10,8 @@ from app import app
 from db_scripts.db_connect import db_setup,db_error_cleanup
 from data_insert import team_id_dict
 
+# TODO: Make Bar chart times series
+
 ts_placeholder = dbc.Spinner(color='secondary')
 
 def get_gamelogs(team_ids, year):
