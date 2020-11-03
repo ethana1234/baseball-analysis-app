@@ -2,6 +2,7 @@ import dash
 import dash_bootstrap_components as dbc
 import dash_core_components as dcc
 import dash_html_components as html
+from dash.dependencies import Input, Output
 
 from app import app
 
@@ -37,8 +38,8 @@ layout = html.Div(
 )
 
 @app.callback(
-    [dash.dependencies.Output(f'{i}-link', 'active') for i in page_ids],
-    [dash.dependencies.Input('url', 'pathname')],
+    [Output(f'{i}-link', 'active') for i in page_ids],
+    [Input('url', 'pathname')],
 )
 def toggle_active_links(pathname):
     if pathname == '/':

@@ -2,6 +2,8 @@ import dash
 import dash_bootstrap_components as dbc
 import dash_core_components as dcc
 import dash_html_components as html
+from dash.dependencies import Input,Output
+
 import sys,requests,json,hashlib
 from requests.exceptions import HTTPError
 
@@ -32,8 +34,8 @@ index_page = html.Div([
     html.Img(src=app.get_asset_url('ballpark.jpg'), style={'max-width': '100%', 'max_height': '90%'})
 ])
 
-@app.callback(dash.dependencies.Output('page-content', 'children'),
-              [dash.dependencies.Input('url', 'pathname')])
+@app.callback(Output('page-content', 'children'),
+              [Input('url', 'pathname')])
 def display_page(pathname):
     if pathname == '/scatters':
         return scatter_plots.layout

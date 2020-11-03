@@ -2,32 +2,14 @@ import dash
 import dash_core_components as dcc
 import dash_html_components as html
 import dash_bootstrap_components as dbc
-import plotly.express as px
-import plotly.graph_objects as go
-import statsmodels.api as sm
+from dash.dependencies import Input, Output
+
 import pandas as pd
-import numpy as np
 
 from app import app
-from db_scripts.db_connect import db_setup,db_error_cleanup
+import db_scripts.graph_data_query as query_engine
 from data_insert import team_id_dict
-
-def get_batters(team_ids, years):
-    conn = db_setup()
-    query = f'''
-        SELECT b.Name, b.Pos, b.Handedness, t.team_code Team, pbs.*
-        FROM Teams t JOIN PlayerBattingSeason pbs
-            ON t.id=pbs.team_id
-        JOIN Batters b
-            ON pbs.player_id=b.id
-        WHERE t.id {'IN (' + ','.join(['?' for _ in team_ids]) + ')' if len(team_ids)>1 else '=?'}
-            AND pbs.season {'IN (' + ','.join(['?' for _ in years]) + ')' if len(years)>1 else '=?'}'''
-    df = pd.read_sql_query(query, conn, params=[*team_ids, *years], coerce_float=True)
-    conn.close()
-
-    df.drop(columns=['player_id', 'team_id'], inplace=True)
-
-    return df
+from .graphing import build_scatter
 
 scatter_placeholder = dbc.Spinner(color='secondary')
 
@@ -75,103 +57,43 @@ layout = html.Div(children=[
 ])
 
 @app.callback(
-    dash.dependencies.Output('b-scatter-save', 'children'),
-    [dash.dependencies.Input('b-scatter-team-name', 'value'),
-    dash.dependencies.Input('b-scatter-season-year', 'value'),]
+    Output('b-scatter-save', 'children'),
+    [Input('b-scatter-team-name', 'value'),
+    Input('b-scatter-season-year', 'value'),]
 )
 def update_dataframe(team_ids, years):
     if team_ids is None or not team_ids:
         team_ids = [20]
     if years is None or not years:
         years = [2020]
-    df = get_batters(team_ids, years)
+    df = query_engine.get_players(team_ids, years, 'b')
+
+    df.drop(columns=['player_id', 'team_id'], inplace=True)
     
     return df.to_json(orient='split')
 
 @app.callback(
-    [dash.dependencies.Output('b-scatter-result', 'children'),
-    dash.dependencies.Output('b-scatter-x', 'options'),
-    dash.dependencies.Output('b-scatter-y', 'options'),
-    dash.dependencies.Output('b-scatter-label', 'children')],
-    [dash.dependencies.Input('b-scatter-save', 'children'),
-    dash.dependencies.Input('b-scatter-x', 'value'),
-    dash.dependencies.Input('b-scatter-y', 'value'),
-    dash.dependencies.Input('b-scatter-season-year', 'value'),
-    dash.dependencies.Input('b-scatter-qualified', 'value')]
+    [Output('b-scatter-result', 'children'),
+    Output('b-scatter-x', 'options'),
+    Output('b-scatter-y', 'options'),
+    Output('b-scatter-label', 'children')],
+    [Input('b-scatter-save', 'children'),
+    Input('b-scatter-x', 'value'),
+    Input('b-scatter-y', 'value'),
+    Input('b-scatter-season-year', 'value'),
+    Input('b-scatter-qualified', 'value')]
 )
 def update_scatter_data(data, x_axis, y_axis, seasons, qualified):
     if data is None:
         return scatter_placeholder, None, None
-    else:
-        if x_axis is None:
-            x_axis = 'Age'
-        if y_axis is None:
-            y_axis = 'BA'
-        df = pd.read_json(data, orient='split').round(3)
-        if qualified:
-            df1 = df[(df.PA >= 186) & (df.season == 2020)]
-            df2 = df[df.PA > 502]
-            df = pd.concat([df1,df2])
-        # Make year categorical
-        df['season'] = df.season.astype(str)
-        
-        fig = px.scatter(df, x=x_axis, y=y_axis, color='season')
-        # Clean up hover info
-        season_len = (seasons is not None) and (len(seasons) > 1)
-        hovertemplate = 'Player: %{customdata[0]}<br>Season: %{customdata[1]}<extra></extra>' if season_len else 'Player: %{customdata[0]}<extra></extra>'
-        fig.update_traces(
-            customdata=np.stack((df.Name, df.season), axis=-1),
-            hovertemplate=hovertemplate,
-            showlegend=season_len
-        )
-
-        # Configure trendline
-        regline = sm.OLS(df[y_axis], sm.add_constant(df[x_axis])).fit().fittedvalues
-        # add linear regression line for whole sample
-        fig.add_traces(
-            go.Scatter(
-                x=df[x_axis],
-                y=regline,
-                mode = 'lines',
-                marker_color='black',
-                opacity=.25,
-                hoverinfo='skip',
-                showlegend=False,
-            )
-        )
-
-        fig.update_layout(
-            font=dict(
-                size=18,
-                family='Segoe UI'
-            ),
-            hovermode='closest',
-            xaxis=dict(
-                title=x_axis,
-                type='linear',
-                showspikes=True,
-                spikemode='across',
-                spikethickness=2,
-                spikedash='dot',
-                spikecolor='grey'
-            ),
-            yaxis=dict(
-                title=y_axis,
-                type='linear',
-                showspikes=True,
-                spikemode='across',
-                spikethickness=2,
-                spikedash='dot',
-                spikecolor='grey'
-            )
-        )
-        
-        
-        # Make sure to only have numeric columns as axis options
-        axis_options = list(df.select_dtypes(include=[np.number]).columns.values)
-        axis_options = [{'label': col, 'value': col} for col in axis_options]
-
-        scatter_title = f'{y_axis} vs. {x_axis} (Pearson Correlation: {df[y_axis].corr(df[x_axis]).round(5)})'
-
-        return dcc.Graph(figure=fig, style={'height': '80vh'}), axis_options, axis_options, scatter_title
+    if x_axis is None:
+        x_axis = 'Age'
+    if y_axis is None:
+        y_axis = 'BA'
+    df = pd.read_json(data, orient='split').round(3)
+    if qualified:
+        df1 = df[(df.PA >= 186) & (df.season == 2020)]
+        df2 = df[df.PA > 502]
+        df = pd.concat([df1,df2])
+    return build_scatter(df, x_axis, y_axis, seasons)
 

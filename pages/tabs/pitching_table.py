@@ -2,65 +2,13 @@ import dash
 import dash_core_components as dcc
 import dash_html_components as html
 import dash_bootstrap_components as dbc
+from dash.dependencies import Input, Output
+
 import pandas as pd
-import sqlite3
 
 from app import app
-from db_scripts.db_connect import db_setup,db_error_cleanup
+import db_scripts.graph_data_query as query_engine
 from data_insert import team_id_dict
-
-def get_pitchers(team_ids, years):
-    conn = db_setup()
-    query = f'''
-        SELECT p.Name, p.Handedness, t.team_code Team, pps.*
-        FROM Teams t JOIN PlayerPitchingSeason pps
-            ON t.id=pps.team_id
-        JOIN Pitchers p
-            ON pps.player_id=p.id
-        WHERE t.id {'IN (' + ','.join(['?' for _ in team_ids]) + ')' if len(team_ids)>1 else '=?'}
-            AND pps.season {'IN (' + ','.join(['?' for _ in years]) + ')' if len(years)>1 else '=?'}'''
-    df = pd.read_sql_query(query, conn, params=[*team_ids, *years], coerce_float=True)
-    conn.close()
-
-    df.drop(columns=['player_id', 'team_id'], inplace=True)
-
-    return df
-
-
-def get_team_pitching(team_ids, years):
-    conn = db_setup()
-    query = f'''
-        SELECT t.Name, (ts.wins || '-' || ts.losses) as Record, tps.*
-        FROM Teams t JOIN TeamPitchingSeason tps
-            ON t.id=tps.team_id
-        JOIN TeamSeason ts
-            ON t.id=ts.team_id
-                AND ts.season=tps.season
-        WHERE t.id {'IN (' + ','.join(['?' for _ in team_ids]) + ')' if len(team_ids)>1 else '=?'}
-            AND tps.season {'IN (' + ','.join(['?' for _ in years]) + ')' if len(years)>1 else '=?'}'''
-    df = pd.read_sql_query(query, conn, params=[*team_ids, *years], coerce_float=True)
-    conn.close()
-
-    df.drop(columns=['team_id'], inplace=True)
-    
-    return df
-
-def get_gamelogs(team_ids, years):
-    conn = db_setup()
-    query = f'''
-        SELECT t1.team_code || CASE tbg.HomeAway WHEN 'H' THEN ' vs. ' ELSE ' @ ' END || t2.team_code Game, tpg.R || '-' || tpg.RunsAgainst Score, tpg.*
-        FROM Teams t1 JOIN TeamPitchingGame tpg
-            ON t1.id=tpg.team_id
-        JOIN Teams t2
-            ON t2.id=tpg.opp_id
-        WHERE t1.id {'IN (' + ','.join(['?' for _ in team_ids]) + ')' if len(team_ids)>1 else '=?'}
-            AND tpg.season {'IN (' + ','.join(['?' for _ in years]) + ')' if len(years)>1 else '=?'}'''
-    df = pd.read_sql_query(query, conn, params=[*team_ids, *years], coerce_float=True)
-    conn.close()
-
-    df.drop(columns=['team_id', 'game_id', 'opp_id', 'HomeAway', 'RunsFor', 'R'], inplace=True)
-    
-    return df
 
 table_placeholder = dbc.Jumbotron([
     dbc.Container([
@@ -124,12 +72,12 @@ layout = html.Div(children=[
 ])
 
 @app.callback(
-    [dash.dependencies.Output('p-table-save', 'children'),
-    dash.dependencies.Output('p-table-sorter', 'value'),
-    dash.dependencies.Output('p-table-asc-desc', 'value')],
-    [dash.dependencies.Input('p-table-type', 'value'),
-    dash.dependencies.Input('p-table-team-name', 'value'),
-    dash.dependencies.Input('p-table-season-year', 'value'),]
+    [Output('p-table-save', 'children'),
+    Output('p-table-sorter', 'value'),
+    Output('p-table-asc-desc', 'value')],
+    [Input('p-table-type', 'value'),
+    Input('p-table-team-name', 'value'),
+    Input('p-table-season-year', 'value'),]
 )
 def update_dataframe(table_type, team_ids, years):
     if team_ids is None or not team_ids:
@@ -137,22 +85,28 @@ def update_dataframe(table_type, team_ids, years):
     if years is None or not years:
         years = [2020]
     if table_type == 'pps':
-        df = get_pitchers(team_ids, years)
+        df = query_engine.get_players(team_ids, years, 'p')
+        df.drop(columns=['player_id', 'team_id'], inplace=True)
+
     elif table_type == 'tps':
-        df = get_team_pitching(team_ids, years)
+        df = query_engine.get_team_season(team_ids, years, 'p')
+        df.drop(columns=['team_id'], inplace=True)
+
     elif table_type == 'tpg':
-        df = get_gamelogs(team_ids, years)
+        df = query_engine.get_gamelogs(team_ids, years, 'p')
+        df.drop(columns=['team_id', 'game_id', 'opp_id', 'HomeAway', 'RunsFor', 'R'], inplace=True)
+
     else:
         return None, None, None
     
     return df.to_json(orient='split'), None, None
 
 @app.callback(
-    [dash.dependencies.Output('p-table-result', 'children'),
-    dash.dependencies.Output('p-table-sorter', 'options')],
-    [dash.dependencies.Input('p-table-save', 'children'),
-    dash.dependencies.Input('p-table-sorter', 'value'),
-    dash.dependencies.Input('p-table-asc-desc', 'value')]
+    [Output('p-table-result', 'children'),
+    Output('p-table-sorter', 'options')],
+    [Input('p-table-save', 'children'),
+    Input('p-table-sorter', 'value'),
+    Input('p-table-asc-desc', 'value')]
 )
 def update_table_type(data, sort_by, asc_desc):
     if data is None:
