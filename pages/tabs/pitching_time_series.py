@@ -4,11 +4,7 @@ import dash_html_components as html
 import dash_bootstrap_components as dbc
 from dash.dependencies import Input, Output
 
-import plotly.express as px
-import plotly.graph_objects as go
-
 import pandas as pd
-import numpy as np
 
 from app import app
 import db_scripts.graph_data_query as query_engine
