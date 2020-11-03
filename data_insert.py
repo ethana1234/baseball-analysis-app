@@ -49,12 +49,12 @@ team_id_dict = dict(zip(team_codes, list(range(len(team_codes)))))
 def new_db(conn):
     directory = os.path.dirname(os.path.abspath(__file__))
     # Drop and recreate tables
-    with open(directory + '/db_scripts/new_tables.sql', 'r') as f:
+    with open(os.path.join(directory, 'db_scripts', 'new_tables.sql'), 'r') as f:
         script = f.read()
         conn.executescript(script)
 
     # Populate Teams table
-    df = pd.read_csv(directory + '/db_scripts/team_table.csv')
+    df = pd.read_csv(os.path.join(directory, 'db_scripts', 'team_table.csv'))
     df['id'] = df['id'].apply(pd.to_numeric)
     df.set_index('id', inplace=True)
     df.to_sql('Teams', conn, if_exists='append')
@@ -392,18 +392,17 @@ def insert_pitching_season_data(conn, team_code, year):
 
 
 def populate_db():
-    conn = db_setup()
-    new_db(conn)
-    for team in team_codes:
-        print(team)
-        for year in range(2020, 2011, -1):
-            print('\t', year)
-            insert_team_data(conn, team, year)
-            insert_batting_game_data(conn, team, year)
-            insert_pitching_game_data(conn, team, year)
-            insert_batting_season_data(conn, team, year)
-            insert_pitching_season_data(conn, team, year)
-    conn.close()
+    with db_setup() as conn:
+        new_db(conn)
+        for team in team_codes:
+            print(team)
+            for year in range(2020, 2011, -1):
+                print('\t', year)
+                insert_team_data(conn, team, year)
+                insert_batting_game_data(conn, team, year)
+                insert_pitching_game_data(conn, team, year)
+                insert_batting_season_data(conn, team, year)
+                insert_pitching_season_data(conn, team, year)
 
 if __name__=='__main__':
     populate_db()
